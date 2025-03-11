@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html>
+
+<head lang="en">
+    <meta charset="UTF-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+
+    <title>RealmDreamer: Text-Driven 3D Scene Generation with Inpainting and Depth Diffusion</title>
+
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <meta property="og:image" content="https://realmdreamer.github.io/img/grid_teaser_img.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1711">
+    <meta property="og:image:height" content="576">
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://realmdreamer.github.io/"/>
+    <meta property="og:title" content="RealmDreamer: Text-Driven 3D Scene Generation with Inpainting and Depth Diffusion" />
+    <meta property="og:description" content="We introduce RealmDreamer, a technique for generation of general forward-facing 3D scenes from text descriptions. Our technique optimizes a 3D Gaussian Splatting representation to match complex text prompts. We initialize these splats by utilizing the state-of-the-art text-to-image generators, lifting their samples into 3D, and computing the occlusion volume. We then optimize this representation across multiple views as a 3D inpainting task with image-conditional diffusion models. To learn correct geometric structure, we incorporate a depth diffusion model by conditioning on the samples from the inpainting model, giving rich geometric structure. Finally, we finetune the model using sharpened samples from image generators. Notably, our technique does not require training on any scene-specific dataset and can synthesize a variety of high-quality 3D scenes in different styles, consisting of multiple objects. Its generality additionally allows 3D synthesis from a single image. 
+    ."/>
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RealmDreamer: Text-Driven 3D Scene Generation with Inpainting and Depth Diffusion" />
+    <meta name="twitter:description" content="We introduce RealmDreamer, a technique for generation of general forward-facing 3D scenes from text descriptions. Our technique optimizes a 3D Gaussian Splatting representation to match complex text prompts. We initialize these splats by utilizing the state-of-the-art text-to-image generators, lifting their samples into 3D, and computing the occlusion volume. We then optimize this representation across multiple views as a 3D inpainting task with image-conditional diffusion models. To learn correct geometric structure, we incorporate a depth diffusion model by conditioning on the samples from the inpainting model, giving rich geometric structure. Finally, we finetune the model using sharpened samples from image generators. Notably, our technique does not require training on any scene-specific dataset and can synthesize a variety of high-quality 3D scenes in different styles, consisting of multiple objects. Its generality additionally allows 3D synthesis from a single image.
+    "/>
+    <meta name="twitter:image" content="https://realmdreamer.github.io/img/grid_teaser_img.png" />
+
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏛️</text></svg>">
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.8.0/codemirror.min.css">
+    <link rel="stylesheet" href="css/app.css">
+	<link rel="stylesheet" href="css/fontawesome.all.min.css">
+	<link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+
+
+	<!-- Google tag (gtag.js) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.8.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.3/clipboard.min.js"></script>
+    <script type="text/javascript" async
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+    </script>
+	<script defer src="js/fontawesome.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>
+
+    <script src="js/app.js"></script>
+    <script src="js/synced_video_selector.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+
+.mobile-content {
+  display: none;
+}
+
+/* Desktop-specific styles */
+@media (min-width: 768px) {
+  /* Hide mobile section */
+  .mobile-content {
+      display: none;
+  }
+  /* Show desktop section */
+  .desktop-content {
+      display: block;
+  }
+}
+
+/* Mobile-specific styles */
+@media (max-width: 767px) {
+  /* Show mobile section */
+  .mobile-content {
+      display: block;
+  }
+  /* Hide desktop section */
+  .desktop-content {
+      display: none;
+  }
+}
+
+
+.bg-customcustom {
+  background-color: #333333; /* Slightly darker than bg-light */
+}
+
+.bg-customcustom a {
+  color: #179cd0;
+  text-decoration: none;
+}
+.custom-spacing > :first-child {
+  margin-top: 40px; /* Applies only to the first child element */
+}
+
+
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-weight: 400;
+  src: local('Lato Italic'), local('Lato-Italic'), url(https://fonts.gstatic.com/s/lato/v15/S6u8w4BMUTPHjxsAUi-qNiXg7eU0.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-weight: 400;
+  src: local('Lato Italic'), local('Lato-Italic'), url(https://fonts.gstatic.com/s/lato/v15/S6u8w4BMUTPHjxsAXC-qNiXg7Q.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-weight: 700;
+  src: local('Lato Bold Italic'), local('Lato-BoldItalic'), url(https://fonts.gstatic.com/s/lato/v15/S6u_w4BMUTPHjxsI5wq_FQftx9897sxZ.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-weight: 700;
+  src: local('Lato Bold Italic'), local('Lato-BoldItalic'), url(https://fonts.gstatic.com/s/lato/v15/S6u_w4BMUTPHjxsI5wq_Gwftx9897g.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Lato Regular'), local('Lato-Regular'), url(https://fonts.gstatic.com/s/lato/v15/S6uyw4BMUTPHjxAwXiWtFCfQ7A.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Lato Regular'), local('Lato-Regular'), url(https://fonts.gstatic.com/s/lato/v15/S6uyw4BMUTPHjx4wXiWtFCc.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* latin-ext */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Lato Bold'), local('Lato-Bold'), url(https://fonts.gstatic.com/s/lato/v15/S6u9w4BMUTPHh6UVSwaPGQ3q5d0N7w.woff2) format('woff2');
+  unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* latin */
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Lato Bold'), local('Lato-Bold'), url(https://fonts.gstatic.com/s/lato/v15/S6u9w4BMUTPHh6UVSwiPGQ3q5d0.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* XKCD CSS */
+@font-face {
+  font-family: 'xkcd';
+  src: url('./fonts/xkcd-script.ttf') format('truetype');
+}
+
+a {
+  color: #1772d0;
+  text-decoration: none;
+}
+
+a:focus,
+a:hover {
+  color: #f09228;
+  text-decoration: none;
+}
+
+.author-mobile a {
+  color: #4b99b3 !important;
+  transition: 0.2s color;
+}
+
+.author-mobile a:hover {
+  color: #1a5a6f!important;
+  transition: 0.2s color;
+}
+
+.author-desktop a {
+  color: #c0ebff !important;
+  transition: 0.2s color;
+}
+
+.author-desktop a:hover {
+  color: #4b99b3!important;
+  transition: 0.2s color;
+}
+
+body,
+td,
+th,
+tr,
+p,
+a {
+  /* font-family: 'Lato', Verdana, Helvetica, sans-serif; */
+  font-family: 'Nunito Sans', sans-serif;
+  /* font-size: 14px */
+}
+
+strong {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  /* font-size: 14px; */
+}
+
+heading, h1, h2, h3, h4, h5, h6 {
+  /* font-family: 'Lato', Verdana, Helvetica, sans-serif; */
+  font-family: 'Roboto', sans-serif;
+  /* font-size: 22px; */
+}
+
+papertitle {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 700
+}
+
+name {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 32px;
+}
+
+.one {
+  width: 160px;
+  height: 160px;
+  position: relative;
+}
+
+.two {
+  width: 160px;
+  height: 160px;
+  position: absolute;
+  transition: opacity .2s ease-in-out;
+  -moz-transition: opacity .2s ease-in-out;
+  -webkit-transition: opacity .2s ease-in-out;
+}
+
+.fade {
+  transition: opacity .2s ease-in-out;
+  -moz-transition: opacity .2s ease-in-out;
+  -webkit-transition: opacity .2s ease-in-out;
+}
+
+span.highlight {
+  background-color: #ffffd0;
+}
+
+.CodeMirror {
+    font-size: .8em;
+    height: auto;
+}
+
+.CodeMirror-scroll {
+    overflow-y: hidden;
+    overflow-x: auto;
+}
+
+#header_img {
+    margin-top: 2em;
+    margin-bottom: 1em;
+}
+
+.list-inline {
+	list-style: none;
+	margin-left: -0.5em;
+	margin-right: -0.5em;
+	padding-left: 0;
+}
+
+.list-inline > li {
+	display: inline-block;
+	margin-left: 0.5em;
+	margin-right: 0.5em;
+}
+
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 28px;
+  
+}
+
+.switch input {display:none;}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #4a80f5;
+  -webkit-transition: .4s;
+  transition: .4s;
+   border-radius: 28px;
+   
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  -webkit-transition: .4s;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #b2b2b2;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  -webkit-transform: translateX(26px);
+  -ms-transform: translateX(26px);
+  transform: translateX(32px);
+}
+
+/*------ ADDED CSS ---------*/
+.slider:after
+{
+ content:'';
+ color: black;
+ display: block;
+ position: absolute;
+ transform: translate(-20%,-50%);
+ top: 50%;
+ left: 50%;
+ font-size: 16px;
+ font-family: Verdana, sans-serif;
+}
+
+input:checked + .slider:after
+{  
+  content:'';
+  transform: translate(80%,-50%);
+}
+
+/*--------- END --------*/
+
+.switch-container-wrapper {
+  display: flex;
+  justify-content: center; /* Center horizontally */
+}
+
+.switch-container {
+  display: flex;
+  align-items: center; /* Align items vertically */
+  
+}
+
+.switch-label {
+  color: black;
+  font-size: 16px;
+  margin-right: 5px; /* Adjust the margin as needed */
+  margin-left: 5px; /* Adjust the margin as needed */
+}
+
+.video-container {
+  position: relative;
+  max-width: 100%;
+  margin: 0.5em;
+}
+
+.overlay {
+  position: absolute;
+  top: 50%; /* Adjust the top position as needed */
+  left: 50%; /* Adjust the left position as needed */
+  background-color: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+  color: black;
+  font-size: 16px;
+}
+
+.thumbnail-img {
+  max-width: 100%;
+  height: auto;
+  width: auto\9;
+  /* IE8 */
+}
+
+.pill {
+  cursor: pointer;
+  padding: 5px;
+  margin: 5px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  display: inline-block;
+  transition: background-color 0.3s;
+}
+
+#prompt-box {
+  font-family: 'xkcd', sans-serif;
+  font-size: 1.5em;
+} 
+
+#prompt-box::before {
+  content: '"';
+}
+
+#prompt-box::after {
+  content: '"';
+}
+
+
+.active-pill {
+  /* background-color: #b4b4b4; */
+  /* Adjust the color as needed */
+  font-weight: bold;
+}
+
+.nav-pills {
+  cursor: pointer;
+}
+
+.center-pills {
+  display: flex;
+  justify-content: center;
+}
+
+.scene-pills > .active {
+  background: #c5e2ff;
+}
+/* 
+.mode-pill {
+  font-size: 1em;
+} */
+
+/* .mode-pills > .active {
+  background: #1772d0;
+} */
+
+.button {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    text-size-adjust: 100%;
+    font-family: 'Noto Sans', sans-serif;
+    font-style: inherit;
+    font-weight: inherit;
+    box-sizing: inherit;
+    text-decoration: none;
+    user-select: none;
+    -webkit-appearance: none;
+    align-items: center;
+    border: 1px solid transparent;
+    box-shadow: none;
+    display: inline-flex;
+    height: 2.5em;
+    line-height: 1.5;
+    position: relative;
+    vertical-align: top;
+    border-width: 1px;
+    cursor: pointer;
+    justify-content: center;
+    padding-bottom: calc(.5em - 1px);
+    padding-top: calc(.5em - 1px);
+    text-align: center;
+    white-space: nowrap;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    background-color: #363636;
+    border-color: transparent;
+    color: #fff;
+    font-size: 1.4rem;
+    border-radius: 290486px;
+    padding-left: calc(1em + .25em);
+    padding-right: calc(1em + .25em);
+  }
+
+.button .icon {
+      -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    text-size-adjust: 100%;
+    font-family: 'Noto Sans', sans-serif;
+    user-select: none;
+    line-height: 1.5;
+    cursor: pointer;
+    text-align: center;
+    white-space: nowrap;
+    color: #fff;
+    font-size: 1rem;
+    box-sizing: inherit;
+    font-style: inherit;
+    font-weight: inherit;
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    height: 1.5em;
+    width: 1.5em;
+    margin-left: calc(-.5em - 1px);
+    margin-right: .25em;
+}
+
+
+html, body {
+  height: 100%!important;
+}
+
+.header {
+  background-image: linear-gradient(rgba(0, 0, 0, 1.0), rgba(0, 0, 0, 1.0));
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  height: 100vh;
+  width: 100vh;
+  margin: 0;
+
+}
+
+.author {
+  a {
+    color: #ff8b5e !important;
+    transition: 0.2s color;
+  }
+
+  a:hover {
+    color: #bc6501!important;
+    transition: 0.2s color;
+  }
+
+  /* color: #fff!important; */
+}
+.video-background {
+  position: relative;
+  width: 100%;
+  padding-top: 63.21%; /* Aspect ratio */
+  overflow: hidden;
+}
+
+.video-background::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5); /* Change the color and opacity as needed */
+  z-index: 1;
+}
+
+.video-background video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+}
+
+.flex-center-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.content {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  transform: translateY(-6px); /* Moves content up by 1px */
+  /* Removed top and transform properties */
+}
+
+.orange {
+  color: #ff8b5e;
+}
+
+
+.xkcd {
+  font-family: 'xkcd', sans-serif;
+}
+
+.citation {
+  background-color: #ededed;
+  width: 100%;
+}
+
+
+/* Small devices (landscape phones, 576px and up)*/
+@media (min-width: 576px) {
+  .w-sm-100 {
+      width: 100% !important;
+  }
+
+  .w-sm-75 {
+      width: 75% !important;
+  }
+
+  .w-sm-50 {
+      width: 50% !important;
+  }
+
+  .w-sm-25 {
+      width: 25% !important;
+  }
+
+  .h-sm-100 {
+      height: 100% !important;
+  }
+
+  .h-sm-75 {
+      height: 75% !important;
+  }
+
+  .h-sm-50 {
+      height: 50% !important;
+  }
+
+  .h-sm-25 {
+      height: 25% !important;
+  }
+}
+
+
+/* Medium devices (tablets, 768px and up)*/
+@media (min-width: 768px) {
+  .w-md-100 {
+      width: 100% !important;
+  }
+
+  .w-md-75 {
+      width: 75% !important;
+  }
+
+  .w-md-50 {
+      width: 50% !important;
+  }
+
+  .w-md-25 {
+      width: 25% !important;
+  }
+
+  .h-md-100 {
+      height: 100% !important;
+  }
+
+  .h-md-75 {
+      height: 75% !important;
+  }
+
+  .h-md-50 {
+      height: 50% !important;
+  }
+
+  .h-md-25 {
+      height: 25% !important;
+  }
+}
+
+/* Large devices (desktops, 992px and up)*/
+@media (min-width: 992px) {
+  .w-lg-100 {
+      width: 100% !important;
+  }
+
+  .w-lg-75 {
+      width: 75% !important;
+  }
+
+  .w-lg-50 {
+      width: 50% !important;
+  }
+
+  .w-lg-25 {
+      width: 25% !important;
+  }
+
+  .h-lg-100 {
+      height: 100% !important;
+  }
+
+  .h-lg-75 {
+      height: 75% !important;
+  }
+
+  .h-lg-50 {
+      height: 50% !important;
+  }
+
+  .h-lg-25 {
+      height: 25% !important;
+  }
+}
+
+/* Extra large devices (large desktops, 1200px and up)*/
+@media (min-width: 1200px) {
+  .w-xl-100 {
+      width: 100% !important;
+  }
+
+  .w-xl-75 {
+      width: 75% !important;
+  }
+
+  .w-xl-50 {
+      width: 50% !important;
+  }
+
+  .w-xl-25 {
+      width: 25% !important;
+  }
+
+  .h-xl-100 {
+      height: 100% !important;
+  }
+
+  .h-xl-75 {
+      height: 75% !important;
+  }
+
+  .h-xl-50 {
+      height: 50% !important;
+  }
+
+  .h-xl-25 {
+      height: 25% !important;
+  }
+}
+
+</style>
+</head>
+
+<body style="padding: 0%; width: 100%">
+    <div class="desktop-content">
+    <div class="video-background" style="margin-bottom: 0px; padding-bottom: 0px;">
+        <video playsinline="playsinline" autoplay="autoplay" muted="muted" loop="loop">
+            <source src="videos/teaser/wipe_4.mp4" type="video/mp4">
+        </video>
+        <div class="video-overlay"></div>
+        <div class="flex-center-container"> <!-- New container for flexbox centering -->
+            <div class="content">
+                <!-- Your content here -->
+                <h1 style="font-size: 48px;"><b>RealmDreamer: Text-Driven 3D Scene Generation</b></h1>
+                <h3 style="font-size: 36px;"><b>with Inpainting and Depth Diffusion</b></h3>                
+                <div class="row justify-content-center">
+                    <div class="col-12 mb-3 h4 orange">
+                        <strong>3DV 2025</strong>
+                    </div>
+                </div>
+                <div class="row justify-content-center">
+                    <div class="col-12 h3">
+                        <a href="pdf/realmdreamer.pdf" class="btn btn-light" role="button" style="font-size: 20px;">Paper</a>
+                        <a href="https://arxiv.org/abs/2404.07199" class="btn btn-outline-light" role="button" style="font-size: 20px;" >Arxiv</a>
+                        <a href="https://github.com/jaidevshriram/realmdreamer" class="btn btn-outline-light" role="button" style="font-size: 20px;">Code</a>
+                    </div>
+                </div>
+                <div class="container-fluid h-0 h-md-0 w-100 d-flex flex-column custom-spacing text-center" style="padding-top: 0px;">
+                    <div class="row justify-content-center mb-3">
+                        <div class="col-12">
+                            <ul class="list-inline author h6">
+                                <li>
+                                    <a href="https://jaidevshriram.com//" target="_blank" class="h6">
+                                        Jaidev Shriram
+                                    </a><sup>1</sup>*
+                                </li>
+                                <li>
+                                    <a href="https://alextrevithick.github.io/" target="_blank" class="h6">
+                                        Alex Trevithick
+                                    </a><sup>1</sup>*
+                                </li>
+                                <li>
+                                    <a href="https://lingjie0206.github.io/" target="_blank" class="h6">
+                                        Lingjie Liu
+                                    </a><sup>2</sup>
+                                </li>
+                                <li>
+                                    <a href="https://cseweb.ucsd.edu/~ravir/" target="_blank" class="h6">
+                                        Ravi Ramamoorthi
+                                    </a><sup>1</sup>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row justify-content-center mb-3">
+                        <div class="col-12 h6">
+                            <sup>1</sup>University of California, San Diego, &nbsp;<sup>2</sup>University of Pennsylvania &nbsp;
+                        </div>
+                    </div>
+                    <div class="row justify-content-center mb-3">
+                        <div class="col-12">
+                            * equal contribution
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+    <div class="mobile-content">
+        <div class="container-fluid h-100 h-md-100 w-100 d-flex flex-column justify-content-center text-center my-5" style="height:100vh;">
+            <div class="row justify-content-center mb-3 order-md-first">
+                <div class="col-12">
+                    <!-- Removed "controls" and added "style='pointer-events: none;'" to prevent interactions -->
+                    <video id="myVideo" class="img-fluid w-100 w-md-50" loop autoplay muted playsinline poster="videos/teaser/poster.png">
+                        <source src="videos/teaser/teaser_twitter.mp4" type="video/mp4">
+                    </video>
+    
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        var video = document.getElementById('myVideo');
+    
+                        // Function to detect mobile devices
+                        function isMobileDevice() {
+                            return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
+                        };
+    
+                        // Initially disable pointer events for non-mobile devices and then enable after 2 seconds
+                        if (!isMobileDevice()) {
+                            //video.style.pointerEvents = 'none';
+                            setTimeout(function() {
+                                video.setAttribute('controls', '');
+                            }, 1500); // 2000 milliseconds = 2 seconds
+                        } else {
+                            // Enable controls for mobile devices
+                            video.setAttribute('controls', '');
+                        }
+                    });
+                    </script>
+                </div>
+            </div>
+            <div class="row justify-content-center mb-3">
+                <div class="col-12">
+                    <h2><b>RealmDreamer</b>: Text-Driven 3D Scene Generation<br/> with Inpainting and Depth Diffusion</h2>
+                </div>
+            </div>
+            <div class="row justify-content-center mb-3">
+                <div class="col-12 h5 orange">
+                    <strong>3DV 2025</strong>
+                </div>
+            </div>
+            <div class="row justify-content-center mb-3">
+                <div class="col-12">
+                    <ul class="list-inline author-mobile h6">
+                        <li>
+                            <a href="https://jaidevshriram.com//" target="_blank" class="h6">
+                                Jaidev Shriram
+                            </a><sup>1</sup>*
+                        </li>
+                        <li>
+                            <a href="https://alextrevithick.github.io/" target="_blank" class="h6">
+                                Alex Trevithick
+                            </a><sup>1</sup>*
+                        </li>
+                        <li>
+                            <a href="https://lingjie0206.github.io/" target="_blank" class="h6">
+                                Lingjie Liu
+                            </a><sup>2</sup>
+                        </li>
+                        <li>
+                            <a href="https://cseweb.ucsd.edu/~ravir/" target="_blank" class="h6">
+                                Ravi Ramamoorthi
+                            </a><sup>1</sup>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="row justify-content-center mb-3">
+                <div class="col-12 h6">
+                    <sup>1</sup>University of California, San Diego, &nbsp;<sup>2</sup>University of Pennsylvania &nbsp;
+                </div>
+            </div>
+            <div class="row justify-content-center mb-3">
+                <div class="col-12">
+                    * equal contribution
+                </div>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-12 h3">
+                    <a href="pdf/realmdreamer.pdf" class="btn btn-dark" role="button">Paper</a>
+                    <a href="https://arxiv.org/abs/2404.07199" class="btn btn-outline-dark" role="button">Arxiv</a>
+                    <a href="https://github.com/jaidevshriram/realmdreamer" class="btn btn-outline-dark" role="button">Code</a>
+                </div>
+            </div>
+        </div>
+    
+        <div class="video-background">
+            <video playsinline="playsinline" autoplay="autoplay" muted="muted" loop="loop">
+                <source src="videos/teaser/wipe_4.mp4" type="video/mp4">
+            </video>
+            <div class="video-overlay"></div>
+            <div class="flex-center-container"> <!-- New container for flexbox centering -->
+                <div class="content">
+                    <!-- Your content here -->
+                    <h1>We generate large, explorable 3D scenes from a text-description</h1>
+                    <h3>with just <b>pretrained 2D</b> diffusion models</h3>
+                    <!-- Buttons and other content -->
+                </div>
+            </div>
+        </div>
+    
+    </div>
+
+    <!-- <div class="container-fluid h-75 h-md-50 w-100 d-flex flex-column justify-content-center text-center header text-white" style="height:100vh;">
+        <div class="row justify-content-center mb-3">
+            <div class="col-12">
+                <h2><b>RealmDreamer</b>: Text-Driven 3D Scene Generation<br/> with Inpainting and Depth Diffusion</h2>
+            </div>
+        </div>
+        <div class="row justify-content-center mb-3">
+            <div class="col-12">
+                <ul class="list-inline author h6">
+                    <li>
+                        <a href="https://jaidevshriram.com//" target="_blank" class="h6">
+                            Jaidev Shriram
+                        </a><sup>1</sup>*
+                    </li>
+                    <li>
+                        <a href="https://alextrevithick.github.io/" target="_blank" class="h6">
+                            Alex Trevithick
+                        </a><sup>1</sup>*
+                    </li>
+                    <li>
+                        <a href="https://lingjie0206.github.io/" target="_blank" class="h6">
+                            Lingjie Liu
+                        </a><sup>2</sup>
+                    </li>
+                    <li>
+                        <a href="https://cseweb.ucsd.edu/~ravir/" target="_blank" class="h6">
+                            Ravi Ramamoorthi
+                        </a><sup>1</sup>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="row justify-content-center mb-3">
+            <div class="col-12 h6">
+                <sup>1</sup>University of California, San Diego, &nbsp;<sup>2</sup>University of Pennsylvania &nbsp;
+            </div>
+        </div>
+        <div class="row justify-content-center mb-3">
+            <div class="col-12">
+                * equal contribution
+            </div>
+        </div>
+        <div class="row justify-content-center mb-3">
+            <div class="col-12">
+                International Conference on 3D Vision (3DV) 2025
+            </div>
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-12 h3">
+                <a href="https://arxiv.org/abs/2112.15000" class="btn btn-light" role="button">Paper</a>
+                <a href="https://arxiv.org/abs/2112.15000" class="btn btn-outline-light" role="button">Arxiv</a>
+                <a href="https://arxiv.org/abs/2112.15000" class="btn btn-outline-light" role="button">Code</a>
+            </div>
+        </div>
+    </div> -->
+
+
+    <div class="desktop-content">
+        <div class="container-fluid px-5" id="main">
+
+            <div class="row py-5 align-items-center justify-content-center" id="abstract">
+                <div class="col-md-5">
+                    <h1 class="text-center pb-5 text-bold">
+                        <b>Abstract</b>
+                    </h1>
+                    <p class="text-justify px-5">
+                        We introduce <b>RealmDreamer</b>, a technique for generation of general forward-facing 3D scenes from text descriptions. Our technique optimizes a 3D Gaussian Splatting representation to match complex text prompts. We initialize these splats by utilizing the state-of-the-art text-to-image generators, lifting their samples into 3D, and computing the occlusion volume. We then optimize this representation across multiple views as a 3D inpainting task with image-conditional diffusion models. To learn correct geometric structure, we incorporate a depth diffusion model by conditioning on the samples from the inpainting model, giving rich geometric structure. Finally, we finetune the model using sharpened samples from image generators. Notably, our technique does not require training on any scene-specific dataset and can synthesize a variety of high-quality 3D scenes in different styles, consisting of multiple objects. Its generality additionally allows 3D synthesis from a single image.
+                    </p>
+                </div>
+
+                <div class="col-md-7">
+                    <video class="img-fluid" loop autoplay muted>
+                        <source src="videos/teaser/teaser_twitter.mp4" />
+                    </video>
+                </div>
+            </div>
+            <br>
+        </div>  
+        
+        <!-- <div class="container-fluid" id="main">
+
+            <div class="row py-5 align-items-center justify-content-center" id="abstract">
+                <div class="col-12 text-center">
+                    <video id="myVideo" class="img-fluid w-50 w-md-75 mx-auto" loop autoplay muted playsinline poster="videos/teaser/poster.png" controls alt="RealmDreamer Teaser">
+                        <source src="videos/teaser/teaser_twitter.mp4" />
+                    </video>
+                </div>
+            </div>
+            <br>
+        </div>   -->
+    </div>
+
+    <div class="mobile-content">
+        <div class="container" id="main">
+
+            <div class="row py-5 align-items-center justify-content-center" id="abstract">
+                <div class="col-md-6">
+                    <h1 class="text-center pb-5 text-bold">
+                        <b>Abstract</b>
+                    </h1>
+                    <p class="text-justify">
+                        We introduce <b>RealmDreamer</b>, a technique for generation of general forward-facing 3D scenes from text descriptions. Our technique optimizes a 3D Gaussian Splatting representation to match complex text prompts. We initialize these splats by utilizing the state-of-the-art text-to-image generators, lifting their samples into 3D, and computing the occlusion volume. We then optimize this representation across multiple views as a 3D inpainting task with image-conditional diffusion models. To learn correct geometric structure, we incorporate a depth diffusion model by conditioning on the samples from the inpainting model, giving rich geometric structure. Finally, we finetune the model using sharpened samples from image generators. Notably, our technique does not require training on any scene-specific dataset and can synthesize a variety of high-quality 3D scenes in different styles, consisting of multiple objects. Its generality additionally allows 3D synthesis from a single image.
+                    </p>
+                </div>
+                <!-- <div class="col--md-6">
+                    <video class="img-fluid" loop autoplay muted>
+                        <source src="videos/teaser/teaser_twitter.mp4" />
+                    </video>
+                </div> -->
+            </div>
+            <br>
+        </div>    
+    </div>
+
+    <div class="container-fluid">
+        <div class="row py-5 mt-5 bg-dark">
+            <div class="col-2"></div>
+            <div class="col-md-8">
+                <h1 class="text-center pb-2 text-white">
+				  <b>Results</b>
+                </h1><br>
+
+                <script>
+                    activeMethodPill = "zipnerf"
+                    activeScenePill = document.querySelector('.scene-pill.active-pill');
+                    activeModePill = document.querySelector('.mode-pill.active-pill');
+                </script>
+                
+                <div class="text-center">
+                    <div class="video-container">
+                        <video class="video" style="height: 480px; max-width: 100%;" m id="compVideo0" loop playsinline autoplay muted>
+                            <source src="videos/results/rgb/bear.mp4" />
+                        </video>
+                        <video class="video" style="height: 480px; max-width: 100%;" id="compVideo1" loop playsinline autoplay muted hidden>
+                            <source src="videos/results/depth/bear.mp4" />
+                        </video>
+                    </div>
+                    <div class="text-center" style="color: black;" id="mode-pills">
+                        <div class="btn-group btn-group-sm">
+                            <span class="btn btn-primary mode-pill active" data-value="rgb"
+                                onclick="selectCompVideo(activeMethodPill, activeScenePill, null, this)">
+                                RGB
+                            </span>
+                            <span class="btn btn-primary mode-pill" data-value="depth"
+                                onclick="selectCompVideo(activeMethodPill, activeScenePill, null, this)">
+                                Depth
+                            </span>
+                        </div>
+                    </div>
+
+
+                    <br>
+                    <p class="text-justify text-white" style="text-align: center;" id="prompt-box">A bear sitting in a classroom with a hat on, realistic, 4k image, high detail</p>
+                    <script>
+                        video0 = document.getElementById("compVideo0");
+                        video1 = document.getElementById("compVideo1");
+
+                        video0.addEventListener('loadedmetadata', function() {
+                            if (activeVidID == 0 && select){
+                                video0.play();
+                                // print video size
+                                console.log(video0.videoWidth, video0.videoHeight);
+                                video0.hidden = false;
+                                video1.hidden = true;
+                            }
+                        });
+
+                        video1.addEventListener('loadedmetadata', function() {
+                            if (activeVidID == 1 && select){
+                                video1.play();
+                                // print video size
+                                console.log(video1.videoWidth, video1.videoHeight);
+                                video0.hidden = true;
+                                video1.hidden = false;
+                            }
+                        });
+                    </script>
+
+                    <div class="pill-row scene-pills" id="scene-pills">
+                        <span class="pill scene-pill active" data-value="bear" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/bear.png" alt="bear" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="bedroom3" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/bedroom3.png" alt="bedroom" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="bust" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/bust.png" alt="bust" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="boat" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/boat.jpg" alt="boat" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="lavender" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/lavender.png" alt="lavender" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="living_room" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/living_room.png" alt="living_room" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="piano" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/piano.jpg" alt="piano" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="resolute" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/resolute.png" alt="resolute" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="astronaut2" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/astronaut2.jpg" alt="astronaut" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="car" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/car.png" alt="car" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="bathroom" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/bathroom2.png" alt="bathroom" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="surf" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/surf.png" alt="surf" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="victorian" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/victorian.jpg" alt="victorian" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="lighthouse" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/lighthouse.png" alt="lighthouse" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="forest" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/forest.jpg" alt="forest" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="kitchen" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/kitchen.png" alt="kitchen" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="steampunk" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/steampunk.jpg" alt="steampunk" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="arcade" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/arcade.jpg" alt="arcade" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="bohemian" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/bohemian.png" alt="bohemian" width="64">
+                        </span>
+                        <span class="pill scene-pill" data-value="japan" onclick="selectCompVideo(activeMethodPill, this, 3)">
+                            <img class="thumbnail-img" src="thumbnails/japan.png" alt="japan" width="64">
+                        </span>
+                    </div>
+
+                    <script>
+                        activeMethodPill = document.querySelector('.method-pill.active-pill');
+                        activeScenePill = document.querySelector('.scene-pill.active-pill');
+                        activeModePill = document.querySelector('.mode-pill.active-pill');
+                    </script>
+                </div>
+
+            </div>
+            <div class="col-2"></div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="row py-5 align-item-center">
+            <div class="col-md-2"></div>
+            <div class="col-md-8 text-center h-100">
+                <h2 class="fst-italic">Inpainting priors are great for occlusion reasoning</h2>
+                <p class="text-justify pt-4">
+                Using text conditioned 2D diffusion models for 3D scene generation is tricky given the lack of 3D consistency across different samples. We mitigate this by leveraging 2D inpainting priors as novel view estimators instead. By rendering an incomplete 3D model and inpainting unknown regions, we learn to generate consistent 3D scenes.
+                </p>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+    </div>
+
+    <div class="container-fluid bg-secondary text-white">
+        <div class="row py-5 align-item-center">
+            <div class="col-md-2"></div>
+            <div class="col-md-8 text-center h-100">
+                <h2 class=""><b> Image to 3D</b></h2>
+                <p class="text-justify pt-4">
+                    We show that our technique can generate 3D scenes from a single image. This is a challenging task as it requires the model to hallucinate the missing geometry and texture in the scene. We do not require training on any scene-specific dataset.
+                </p>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+        <div class="row py-2 align-item-center">
+            <div class="col-md-2"></div>
+            <div class="col-md-8 text-center">
+                <div class="row">
+                    <div class="col-4"> <!-- Adjust col-6 t`o your preference for smaller screens -->
+                        <img class="img-fluid" src="thumbnails/gate.png" />
+                        <p class="text-center">Input Image</p>
+                    </div>
+                    <div class="col-8"> <!-- Adjust col-6 to your preference for smaller screens -->
+                        <video class="video img-fluid" loop autoplay muted>
+                            <source src="videos/single/gate.mp4" />
+                        </video>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="xkcd" style="font-size: 1.5em;">"The Brandenburg Gate in Berlin, large stone gateway with series of columns and a sculpture of a chariot and horses on stop, clear sky, 4k image, photorealistic"</span>
+                </div>
+            </div>
+            
+            <div class="col-md-2"></div>
+        </div>
+        <div class="row py-5 align-item-center">
+            <div class="col-md-2"></div>
+            <div class="col-md-8 text-center">
+                <div class="row">
+                    <div class="col-4"> <!-- Adjust col-6 to your preference for smaller screens -->
+                        <img class="img-fluid" src="thumbnails/conference.png" />
+                        <p class="text-center">Input Image</p>
+                    </div>
+                    <div class="col-8"> <!-- Adjust col-6 to your preference for smaller screens -->
+                        <video class="video img-fluid" loop autoplay muted>
+                            <source src="videos/single/conference.mp4" />
+                        </video>
+                    </div>
+                </div>
+                <div class="row">
+                    <span class="xkcd" style="font-size: 1.5em;">"A minimal conference room, with a long table, a screen on the wall and a whiteboard, 4k image, photorealistic, sharp"</span>
+                </div>
+            </div>
+            
+            <div class="col-md-2"></div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="row py-2 mt-5 justify-content-center">
+            <div class="col-md-2"></div>
+            <div class="col-10 col-md-8">
+                <h1 class="text-center pb-5">
+                    <b>How?</h1></b>
+                </h1>
+                <video class="img-fluid pb-3" loop autoplay muted controls>
+                    <source src="videos/explanation/latest_overview.mov" />
+                </video>
+                <h3>Step 1: Generate a Prototype</h3>
+                <p class="text-justify">
+                    We start by generating a cheap 2D prototype of the 3D scene from a text description using a pretrained text-to-image generator. Given the desired image, we lift its content into 3D using monocular depth estimator, before computing <em>the occlusion volume</em>. This serves as the initialization for a 3D Gaussian Splatting (3DGS) representation.
+                </p>
+
+                <h3 class="pt-4">Step 2: Inpaint Missing Regions</h3>
+                <p class="text-justify">
+                    The generated 3D scene is incomplete and contains missing regions. To fill them in, we leverage a 2D inpainting diffusion model and optimize the splats to match its output over multiple views. An additional depth distillation loss on sampled images ensure the inpainted regions are geometrically plausible.
+                </p>
+
+                <h3 class="pt-4">Step 3: Refine the Scene</h3>
+                <p class="text-justify">
+                    Finally, we refine the 3D model to improve the cohesion between inpainted regions and the prototype by using a vanilla text-to-image diffusion model. An additional sharpness filter ensures the generated samples are more detailed.
+                </p>
+
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+    </div>
+
+    <div class="container-fluid pt-5">
+        <div class="row py-5 mt-5 bg-customcustom">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <h1 class="text-center text-white pb-2"><b>Related Work</b></h1>
+                <p class="text-white">There are many related works that have influenced our technique:</p>
+                <ul class="text-white">
+                    <li><a href="https://dreamfusion3d.github.io/" target="_blank" class="">Dreamfusion</a>, <a href="https://pals.ttic.edu/p/score-jacobian-chaining" target="_blank" class="">Score Jacobian Chaining</a>, and <a href="https://ml.cs.tsinghua.edu.cn/prolificdreamer/" target="_blank" class="">ProlificDreamer</a> pioneer pretrained 2D Diffusion Models for 3D generation.</li>
+                    <li><a href="https://lukashoel.github.io/text-to-room/" target="_blank" class="">Text2Room</a> shows the effectiveness of iterative approaches for indoor scene synthesis.</li>
+                </ul>
+                <p class="text-white">There are also some concurrent work that tackle scene generation or use inpainting models for similar applications:</p>
+                <ul class="text-white">
+                    <li><a href="https://ethanweber.me/nerfiller/" target="_blank" class="">NeRFiller: Completing Scenes via Generative 3D Inpainting</a></li>
+                    <li><a href="https://arxiv.org/abs/2312.03869" target="_blank" class="">Inpaint3D: 3D Scene Content Generation using 2D Inpainting Diffusion</a></li>
+                    <li><a href="https://zqh0253.github.io/SceneWiz3D/" target="_blank" class="">SceneWiz3D: Towards Text-guided 3D Scene Composition</a></li>
+                    <li><a href="https://eckertzhang.github.io/Text2NeRF.github.io/" target="_blank" class="">Text2NeRF: Text-Driven 3D Scene Generation with Neural Radiance Fields</a></li>
+                </ul>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+    </div>
+    
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-2"></div>
+            <div class="col-md-8">
+                <h1 class="text-center pt-5 pb-3">
+                    <b>Citation</b>
+                </h1>
+                <div class="form-group">
+				  <p class="text-justify">
+                    If you find our work interesting, please consider citing us!
+                </p>
+                <pre class="citation">
+
+    @inproceedings{shriram2024realmdreamer,
+        title={RealmDreamer: Text-Driven 3D Scene Generation with 
+                Inpainting and Depth Diffusion},
+        author={Jaidev Shriram and Alex Trevithick and Lingjie Liu and Ravi Ramamoorthi},
+        journal={International Conference on 3D Vision (3DV)},
+        year={2025}
+    }
+                </pre>
+                </div>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+        <div class="row mb-5">
+            <div class="col-md-2"></div>
+            <div class="col-md-8 col-md-offset-2">
+                <h1 class="text-center py-4">
+                    <b>Acknowledgements</b>
+                </h1>
+                <p class="text-justify">
+                    We thank Jiatao Gu and Kai-En Lin for early discussions, Aleksander Holynski and Ben Poole for later discussions. We thank Michelle Chiu for video design help. This work was supported in part by an NSF graduate Fellowship, ONR grant N00014-23-1-2526, NSF CHASE-CI Grants 2100237 and 2120019, gifts from Adobe, Google, Qualcomm, Meta, the Ronald L. Graham Chair, and the UC San Diego Center for Visual Computing.
+                    <br><br>
+                The website template was built on <a href="https://reconfusion.github.io/">Reconfusion</a>, <a href="http://mgharbi.com/">Michaël Gharbi,</a> and <a href="https://dorverbin.github.io/refnerf">Ref-NeRF</a>.
+                </p>
+            </div>
+            <div class="col-md-2"></div>
+        </div>
+    </div>
+</body> 
+</html>
